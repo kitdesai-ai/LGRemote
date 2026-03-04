@@ -10,9 +10,22 @@
 		BC2097BF2F57DEE40048A3C8 /* LGRemote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LGRemote.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		BC2097E42F57E5DC0048A3C8 /* Exceptions for "LGRemote" folder in "LGRemote" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = BC2097BE2F57DEE40048A3C8 /* LGRemote */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		BC2097C12F57DEE40048A3C8 /* LGRemote */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				BC2097E42F57E5DC0048A3C8 /* Exceptions for "LGRemote" folder in "LGRemote" target */,
+			);
 			path = LGRemote;
 			sourceTree = "<group>";
 		};
@@ -254,6 +267,8 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LGRemote/Info.plist;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "LG Remote needs local network access to communicate with your LG TV.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -298,6 +313,8 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LGRemote/Info.plist;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "LG Remote needs local network access to communicate with your LG TV.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
