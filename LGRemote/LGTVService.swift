@@ -101,6 +101,7 @@ class LGTVService: ObservableObject {
     
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
+    private var pointerSocketTask: URLSessionWebSocketTask?
     private let sessionDelegate = TVSessionDelegate()
     private var clientKey: String? {
         get { UserDefaults.standard.string(forKey: "lgTV_clientKey") }
@@ -177,6 +178,8 @@ class LGTVService: ObservableObject {
     }
     
     func disconnect() {
+        pointerSocketTask?.cancel(with: .normalClosure, reason: nil)
+        pointerSocketTask = nil
         webSocketTask?.cancel(with: .normalClosure, reason: nil)
         webSocketTask = nil
         urlSession?.invalidateAndCancel()
@@ -312,6 +315,7 @@ class LGTVService: ObservableObject {
             // Fetch initial state
             fetchVolume()
             fetchInputList()
+            fetchPointerSocket()
             
         case "response":
             handleResponse(id: id, payload: payload)
@@ -363,11 +367,39 @@ class LGTVService: ObservableObject {
                 availableInputs = [liveTVInput] + externalInputs
             }
             
+        case "pointer_socket":
+            if let socketPath = payload["socketPath"] as? String {
+                connectPointerSocket(socketPath)
+            }
+
         default:
             break
         }
     }
-    
+
+    // MARK: - Pointer Input Socket
+
+    private func fetchPointerSocket() {
+        sendCommand(uri: "ssap://com.webos.service.networkinput/getPointerInputSocket", responseId: "pointer_socket")
+    }
+
+    private func connectPointerSocket(_ socketPath: String) {
+        guard let url = URL(string: socketPath),
+              let session = urlSession else { return }
+        let task = session.webSocketTask(with: url)
+        pointerSocketTask = task
+        task.resume()
+    }
+
+    func sendButton(_ name: String) {
+        let message = "type:button\nname:\(name)\n\n"
+        pointerSocketTask?.send(.string(message)) { error in
+            if let error = error {
+                print("Button send error: \(error)")
+            }
+        }
+    }
+
     // MARK: - Commands
     
     func sendCommand(uri: String, payload: [String: String]? = nil, responseId: String? = nil, type: String = "request") {
@@ -406,7 +438,17 @@ class LGTVService: ObservableObject {
     }
     
     func toggleMute() {
-        sendCommand(uri: "ssap://audio/setMute", payload: ["mute": isMuted ? "false" : "true"])
+        let message: [String: Any] = [
+            "id": UUID().uuidString,
+            "type": "request",
+            "uri": "ssap://audio/setMute",
+            "payload": ["mute": !isMuted]
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: message),
+              let str = String(data: data, encoding: .utf8) else { return }
+        webSocketTask?.send(.string(str)) { error in
+            if let error = error { print("Mute send error: \(error)") }
+        }
         isMuted.toggle()
     }
     

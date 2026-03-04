@@ -4,6 +4,7 @@ struct RemoteView: View {
     @StateObject private var tv = LGTVService()
     @State private var showingSettings = false
     @State private var showingInputPicker = false
+    @State private var showingDPad = false
     @State private var powerPressScale: CGFloat = 1.0
     
     var body: some View {
@@ -21,7 +22,7 @@ struct RemoteView: View {
                 // Power button
                 powerButton
                     .padding(.bottom, 36)
-                
+
                 // Volume & Channel controls
                 controlsRow
                     .padding(.bottom, 32)
@@ -40,6 +41,42 @@ struct RemoteView: View {
                     .padding(.bottom, 8)
             }
             .padding(.horizontal, 24)
+
+            // Floating action buttons
+            VStack {
+                Spacer()
+                HStack {
+                    // D-Pad FAB — bottom left
+                    Button {
+                        HapticManager.softTap()
+                        showingDPad = true
+                    } label: {
+                        Image(systemName: "dpad.fill")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.8))
+                            .frame(width: 52, height: 52)
+                            .glassButton()
+                    }
+                    .buttonStyle(ScaleButtonStyle())
+
+                    Spacer()
+
+                    // Settings FAB — bottom right
+                    Button {
+                        HapticManager.softTap()
+                        showingSettings = true
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.8))
+                            .frame(width: 52, height: 52)
+                            .glassButton()
+                    }
+                    .buttonStyle(ScaleButtonStyle())
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 16)
+            }
         }
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showingSettings) {
@@ -47,6 +84,9 @@ struct RemoteView: View {
         }
         .sheet(isPresented: $showingInputPicker) {
             InputPickerView(tv: tv)
+        }
+        .sheet(isPresented: $showingDPad) {
+            DPadView(tv: tv)
         }
         .onAppear {
             if !tv.tvIP.isEmpty {
@@ -70,18 +110,6 @@ struct RemoteView: View {
             }
             
             Spacer()
-            
-            Button {
-                HapticManager.softTap()
-                showingSettings = true
-            } label: {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(.white.opacity(0.5))
-                    .frame(width: 44, height: 44)
-                    .background(Color.white.opacity(0.06))
-                    .clipShape(Circle())
-            }
         }
         .padding(.top, 16)
     }
@@ -328,6 +356,20 @@ struct RemoteView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Glass Button Modifier
+
+extension View {
+    func glassButton() -> some View {
+        self
+            .background(.ultraThinMaterial, in: Circle())
+            .overlay(
+                Circle()
+                    .stroke(.white.opacity(0.15), lineWidth: 0.5)
+            )
+            .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
     }
 }
 
