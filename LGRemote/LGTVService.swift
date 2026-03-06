@@ -201,7 +201,7 @@ class LGTVService: ObservableObject {
                     "created": "20240101000000",
                     "appId": "com.majorcity.lgremote",
                     "vendorId": "com.majorcity",
-                    "localizedAppNames": ["": "LG Remote"],
+                    "localizedAppNames": ["": "LG webOS Remote"],
                     "localizedVendorNames": ["": "Major City Studio"],
                     "permissions": [
                         "LAUNCH", "LAUNCH_WEBAPP", "APP_TO_APP",

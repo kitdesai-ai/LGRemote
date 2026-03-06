@@ -100,7 +100,7 @@ struct RemoteView: View {
     private var topBar: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("LG Remote")
+                Text("LG webOS Remote")
                     .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                 
