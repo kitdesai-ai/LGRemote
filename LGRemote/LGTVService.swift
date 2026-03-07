@@ -56,6 +56,14 @@ struct AnyCodable: Codable {
     }
 }
 
+// MARK: - Discovered TV Model
+
+struct DiscoveredTV: Identifiable, Hashable {
+    let id: String // endpoint hash
+    let name: String
+    let host: String
+}
+
 // MARK: - TV Input Model
 
 struct TVInput: Identifiable, Hashable {
@@ -98,7 +106,10 @@ class LGTVService: ObservableObject {
     var currentChannel: String = "" { willSet { objectWillChange.send() } }
     var availableInputs: [TVInput] = [] { willSet { objectWillChange.send() } }
     var currentInput: String = "" { willSet { objectWillChange.send() } }
-    
+    var discoveredTVs: [DiscoveredTV] = [] { willSet { objectWillChange.send() } }
+    var isScanning: Bool = false { willSet { objectWillChange.send() } }
+
+    private var scanConnections: [NWConnection] = []
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
     private var pointerSocketTask: URLSessionWebSocketTask?
@@ -118,8 +129,80 @@ class LGTVService: ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: "lgTV_mac") }
     }
     
+    // MARK: - TV Discovery (Subnet Scan for port 3001)
+
+    func startDiscovery() {
+        discoveredTVs = []
+        isScanning = true
+        stopDiscovery(keepScanning: true)
+
+        guard let subnet = Self.localSubnet() else {
+            isScanning = false
+            return
+        }
+
+        // Scan all IPs on the subnet for WebOS WebSocket port 3000 (plain TCP, lightweight)
+        for i in 1...254 {
+            let ip = "\(subnet).\(i)"
+            let host = NWEndpoint.Host(ip)
+            let port = NWEndpoint.Port(rawValue: 3000)!
+            let connection = NWConnection(host: host, port: port, using: .tcp)
+            connection.stateUpdateHandler = { [weak self, ip] state in
+                if case .ready = state {
+                    Task { @MainActor in
+                        if !(self?.discoveredTVs.contains(where: { $0.host == ip }) ?? true) {
+                            self?.discoveredTVs.append(DiscoveredTV(id: ip, name: "LG TV", host: ip))
+                        }
+                    }
+                    connection.cancel()
+                }
+            }
+            scanConnections.append(connection)
+            connection.start(queue: .global())
+        }
+
+        // Stop scanning after 6 seconds
+        Task {
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            stopDiscovery()
+        }
+    }
+
+    func stopDiscovery(keepScanning: Bool = false) {
+        for conn in scanConnections {
+            conn.cancel()
+        }
+        scanConnections = []
+        if !keepScanning {
+            isScanning = false
+        }
+    }
+
+    nonisolated private static func localSubnet() -> String? {
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0, let first = ifaddr else { return nil }
+        defer { freeifaddrs(ifaddr) }
+
+        for ptr in sequence(first: first, next: { $0.pointee.ifa_next }) {
+            let iface = ptr.pointee
+            guard iface.ifa_addr.pointee.sa_family == UInt8(AF_INET) else { continue }
+            let name = String(cString: iface.ifa_name)
+            // en0 = WiFi on iOS
+            guard name == "en0" else { continue }
+
+            var addr = iface.ifa_addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+            let ip = String(cString: inet_ntoa(addr.sin_addr))
+            // Return the first 3 octets (assumes /24 subnet)
+            let parts = ip.split(separator: ".")
+            if parts.count == 4 {
+                return "\(parts[0]).\(parts[1]).\(parts[2])"
+            }
+        }
+        return nil
+    }
+
     // MARK: - Connection
-    
+
     /// Attempts wss://IP:3001 first (standard WebOS), then wss://3636, then ws://3000 (legacy)
     func connect() {
         guard !tvIP.isEmpty else {
@@ -324,8 +407,12 @@ class LGTVService: ObservableObject {
             let errorMsg = payload["error"] as? String ?? "Unknown error"
             if errorMsg.contains("pairing") {
                 connectionState = .awaitingPairing
-            } else {
+            } else if connectionState != .connected {
+                // Only update state if we're not already connected
+                // (command-specific errors like MAC fetch shouldn't break the connection)
                 connectionState = .error(errorMsg)
+            } else {
+                print("Command error (ignored): \(id) — \(errorMsg)")
             }
             
         default:
@@ -370,6 +457,21 @@ class LGTVService: ObservableObject {
         case "pointer_socket":
             if let socketPath = payload["socketPath"] as? String {
                 connectPointerSocket(socketPath)
+            }
+
+        case "mac_info":
+            print("MAC info payload: \(payload)")
+            // Prefer wired MAC (Ethernet), fall back to WiFi
+            if let wired = payload["wiredInfo"] as? [String: Any],
+               let mac = wired["macAddress"] as? String, !mac.isEmpty {
+                tvMAC = mac
+            } else if let wifi = payload["wifiInfo"] as? [String: Any],
+                      let mac = wifi["macAddress"] as? String, !mac.isEmpty {
+                tvMAC = mac
+            }
+            // Also try flat keys
+            if tvMAC.isEmpty, let mac = payload["macAddress"] as? String, !mac.isEmpty {
+                tvMAC = mac
             }
 
         default:
@@ -475,6 +577,10 @@ class LGTVService: ObservableObject {
     
     func fetchInputList() {
         sendCommand(uri: "ssap://tv/getExternalInputList", responseId: "input_list")
+    }
+
+    func fetchMACAddress() {
+        sendCommand(uri: "ssap://com.webos.service.connectionmanager/getInfo", responseId: "mac_info")
     }
     
     // MARK: - Wake on LAN (Power On)

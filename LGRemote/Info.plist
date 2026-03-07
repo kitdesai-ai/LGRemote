@@ -6,6 +6,8 @@
 	<string>LG webOS Remote</string>
 	<key>CFBundleDisplayName</key>
 	<string>LG webOS Remote</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>Allow Local Networking</key>

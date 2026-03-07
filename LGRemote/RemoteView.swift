@@ -335,11 +335,18 @@ struct RemoteView: View {
         .buttonStyle(ScaleButtonStyle())
     }
     
+    private var showReconnect: Bool {
+        switch tv.connectionState {
+        case .disconnected, .error: return true
+        default: return false
+        }
+    }
+
     // MARK: - Connection Footer
     
     private var connectionFooter: some View {
         Group {
-            if tv.connectionState == .disconnected || tv.connectionState != .connected {
+            if showReconnect {
                 Button {
                     HapticManager.buttonTap()
                     if tv.tvIP.isEmpty {
