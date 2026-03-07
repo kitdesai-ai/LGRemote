@@ -93,6 +93,14 @@ struct RemoteView: View {
                 tv.connect()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            tv.disconnect()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            if !tv.tvIP.isEmpty {
+                tv.connect()
+            }
+        }
     }
     
     // MARK: - Top Bar
