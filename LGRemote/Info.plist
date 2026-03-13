@@ -13,6 +13,8 @@
 		<key>Allow Local Networking</key>
 		<true/>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>LG webOS Remote needs local network access to communicate with your LG TV.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_webos-second-screen._tcp</string>
