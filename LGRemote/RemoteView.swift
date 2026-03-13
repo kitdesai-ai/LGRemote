@@ -13,69 +13,75 @@ struct RemoteView: View {
             Color.black
                 .ignoresSafeArea()
             
-            VStack(spacing: 0) {
-                // Top bar
-                topBar
-                
-                Spacer()
-                
-                // Power button
-                powerButton
-                    .padding(.bottom, 36)
-
-                // Volume & Channel controls
-                controlsRow
-                    .padding(.bottom, 32)
-                
-                // Input selector
-                inputButton
-                    .padding(.bottom, 16)
-                
-                // Mute button
-                muteButton
-                
-                Spacer()
-                
-                // Connection status
-                connectionFooter
-                    .padding(.bottom, 8)
-            }
-            .padding(.horizontal, 24)
-
-            // Floating action buttons
-            VStack {
-                Spacer()
-                HStack {
-                    // D-Pad FAB — bottom left
-                    Button {
-                        HapticManager.softTap()
-                        showingDPad = true
-                    } label: {
-                        Image(systemName: "dpad.fill")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.8))
-                            .frame(width: 52, height: 52)
-                            .glassButton()
-                    }
-                    .buttonStyle(ScaleButtonStyle())
+            if tv.tvIP.isEmpty {
+                onboardingView
+            } else {
+                VStack(spacing: 0) {
+                    // Top bar
+                    topBar
 
                     Spacer()
 
-                    // Settings FAB — bottom right
-                    Button {
-                        HapticManager.softTap()
-                        showingSettings = true
-                    } label: {
-                        Image(systemName: "gearshape.fill")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.8))
-                            .frame(width: 52, height: 52)
-                            .glassButton()
-                    }
-                    .buttonStyle(ScaleButtonStyle())
+                    // Power button
+                    powerButton
+                        .padding(.bottom, 36)
+
+                    // Volume & Channel controls
+                    controlsRow
+                        .padding(.bottom, 32)
+
+                    // Input selector
+                    inputButton
+                        .padding(.bottom, 16)
+
+                    // Mute button
+                    muteButton
+
+                    Spacer()
+
+                    // Connection status
+                    connectionFooter
+                        .padding(.bottom, 8)
                 }
                 .padding(.horizontal, 24)
-                .padding(.bottom, 16)
+            }
+
+            // Floating action buttons (hidden during onboarding)
+            if !tv.tvIP.isEmpty {
+                VStack {
+                    Spacer()
+                    HStack {
+                        // D-Pad FAB — bottom left
+                        Button {
+                            HapticManager.softTap()
+                            showingDPad = true
+                        } label: {
+                            Image(systemName: "dpad.fill")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.8))
+                                .frame(width: 52, height: 52)
+                                .glassButton()
+                        }
+                        .buttonStyle(ScaleButtonStyle())
+
+                        Spacer()
+
+                        // Settings FAB — bottom right
+                        Button {
+                            HapticManager.softTap()
+                            showingSettings = true
+                        } label: {
+                            Image(systemName: "gearshape.fill")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.8))
+                                .frame(width: 52, height: 52)
+                                .glassButton()
+                        }
+                        .buttonStyle(ScaleButtonStyle())
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 16)
+                }
             }
         }
         .preferredColorScheme(.dark)
@@ -103,6 +109,50 @@ struct RemoteView: View {
         }
     }
     
+    // MARK: - Onboarding
+
+    private var onboardingView: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            VStack(spacing: 20) {
+                Image(systemName: "tv.fill")
+                    .font(.system(size: 56, weight: .light))
+                    .foregroundStyle(.white.opacity(0.15))
+
+                VStack(spacing: 8) {
+                    Text("No TV Connected")
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+
+                    Text("Set up your LG TV to get started.\nMake sure it's on and connected to the same network.")
+                        .font(.system(size: 15, weight: .regular, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.45))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(3)
+                }
+            }
+
+            Spacer()
+
+            Button {
+                HapticManager.buttonTap()
+                showingSettings = true
+            } label: {
+                Text("Get Started")
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(Color.blue)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(ScaleButtonStyle())
+            .padding(.horizontal, 32)
+            .padding(.bottom, 48)
+        }
+    }
+
     // MARK: - Top Bar
     
     private var topBar: some View {
