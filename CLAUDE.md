@@ -25,3 +25,29 @@ iOS SwiftUI app to control LG webOS TVs via SSAP WebSocket protocol. No external
 
 ## Preferences
 - No "Co-Authored-By: Claude" in commit messages
+
+## Build & Deploy
+
+"Commit" means commit + archive + upload to TestFlight. Always run the full pipeline.
+
+### Commands
+  ```bash
+  # 1. Commit (only when asked)
+  git add <files> && git commit -m "message"
+
+  # 2. Archive
+  xcodebuild archive -scheme LGRemote \
+    -archivePath ./build/LGRemote.xcarchive \
+    -destination 'generic/platform=iOS'
+
+  # 3. Export + Upload (ExportOptions.plist has destination=upload)
+  xcodebuild -exportArchive \
+    -archivePath ./build/LGRemote.xcarchive \
+    -exportPath ./build \
+    -exportOptionsPlist ExportOptions.plist
+
+  Prerequisites
+
+  - Apple ID credentials stored in keychain: xcrun notarytool store-credentials "AC_PASSWORD"
+  - Automatic signing configured in Xcode with a valid team
+  - ExportOptions.plist at project root with your team ID
