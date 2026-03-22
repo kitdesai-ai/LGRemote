@@ -103,6 +103,7 @@ class LGTVService: ObservableObject {
     var connectionState: TVConnectionState = .disconnected { willSet { objectWillChange.send() } }
     var volume: Int = 0 { willSet { objectWillChange.send() } }
     var isMuted: Bool = false { willSet { objectWillChange.send() } }
+    var soundOutput: String = "" { willSet { objectWillChange.send() } }
     var currentChannel: String = "" { willSet { objectWillChange.send() } }
     var availableInputs: [TVInput] = [] { willSet { objectWillChange.send() } }
     var currentInput: String = "" { willSet { objectWillChange.send() } }
@@ -399,6 +400,7 @@ class LGTVService: ObservableObject {
             fetchVolume()
             fetchInputList()
             fetchPointerSocket()
+            fetchSoundOutput()
             
         case "response":
             handleResponse(id: id, payload: payload)
@@ -439,6 +441,11 @@ class LGTVService: ObservableObject {
                 isMuted = muted
             }
             
+        case "sound_output":
+            if let output = payload["soundOutput"] as? String {
+                soundOutput = output
+            }
+
         case "input_list":
             if let devices = payload["devices"] as? [[String: Any]] {
                 let liveTVInput = TVInput(id: "livetv", label: "TV", appId: "com.webos.app.livetv", connected: true)
@@ -573,6 +580,10 @@ class LGTVService: ObservableObject {
     
     func fetchVolume() {
         sendCommand(uri: "ssap://audio/getVolume", responseId: "volume_status", type: "subscribe")
+    }
+
+    func fetchSoundOutput() {
+        sendCommand(uri: "ssap://audio/getSoundOutput", responseId: "sound_output")
     }
     
     func fetchInputList() {

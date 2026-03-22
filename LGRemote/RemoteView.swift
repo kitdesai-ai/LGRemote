@@ -243,7 +243,7 @@ struct RemoteView: View {
                 topIcon: "speaker.plus.fill",
                 bottomIcon: "speaker.minus.fill",
                 label: "VOL",
-                value: "\(tv.volume)",
+                value: tv.soundOutput == "tv_speaker" || tv.soundOutput.isEmpty ? "\(tv.volume)" : nil,
                 topAction: { tv.volumeUp() },
                 bottomAction: { tv.volumeDown() }
             )
