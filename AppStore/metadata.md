@@ -92,7 +92,7 @@ https://kitdesai-ai.github.io/lgremote/
 
 ### Copyright
 ```
-2026 Kit Desai
+2026 Kitdesai, LLC
 ```
 
 ### Version & Build
