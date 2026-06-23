@@ -35,6 +35,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # Auto-enables Pages (build type: GitHub Actions) on first run, so the
+          # workflow doesn't fail with "Get Pages site failed / Not Found".
+          enablement: true
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
