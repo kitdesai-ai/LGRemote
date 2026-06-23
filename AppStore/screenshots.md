@@ -22,6 +22,15 @@ or tweak them anytime with `python3 AppStore/generate_screenshots.py`
 > frame/caption the UI like these. If you prefer pixel-exact captures from the
 > live app, follow the simulator steps below and drop them in — either works.
 
+### Want the flair on REAL screenshots?
+
+The renderer can frame your actual app captures with the same headline/gradient.
+Drop a 6.9" capture (1320 × 2868) into `screenshots/raw/` using the matching
+slide filename (e.g. `screenshots/raw/01-remote.png`) and rerun
+`python3 AppStore/generate_screenshots.py`. Slides with a real capture use it;
+the rest stay synthetic — mix and match freely. Details in
+[`screenshots/raw/README.md`](screenshots/raw/README.md).
+
 ---
 
 ## Requirements reference

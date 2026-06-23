@@ -3,7 +3,7 @@
 # Each slide: branded gradient + headline + the app UI inside an iPhone frame.
 # App UI is recreated faithfully from the SwiftUI source at 393x852 logical pt.
 
-import os, math, cairosvg
+import os, math, base64, cairosvg
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "screenshots")
 os.makedirs(OUT, exist_ok=True)
@@ -348,7 +348,26 @@ def screen_inputs():
 
 # ---------- compose marketing slide ----------
 
-def compose(filename, headline, subtitle, screen_svg, glow=TEAL):
+def _png_data_uri(path):
+    with open(path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode("ascii")
+    return "data:image/png;base64," + b64
+
+
+def compose(filename, headline, subtitle, screen_svg=None, glow=TEAL,
+            screen_image=None, draw_island=None):
+    """Render one marketing slide.
+
+    Pass either screen_svg (synthetic UI) or screen_image (path to a real PNG
+    capture, e.g. a 1320x2868 simulator screenshot). The chosen screen is placed
+    inside the iPhone frame with the headline/gradient flair.
+    """
+    use_image = screen_image is not None
+    if draw_island is None:
+        # synthetic screens draw their own status bar but no island; real
+        # screenshots already include the top of the device, so skip it there.
+        draw_island = not use_image
+
     # phone geometry on the 1320x2868 canvas
     SW, SH = 864, int(864 * 852 / 393)         # screen px
     FP = 30                                      # frame bezel
@@ -358,7 +377,9 @@ def compose(filename, headline, subtitle, screen_svg, glow=TEAL):
     SX, SY = FX + FP, FY + FP
 
     svg = []
-    svg.append(f'<svg xmlns="http://www.w3.org/2000/svg" width="{CW}" height="{CH}" viewBox="0 0 {CW} {CH}">')
+    svg.append(f'<svg xmlns="http://www.w3.org/2000/svg" '
+               f'xmlns:xlink="http://www.w3.org/1999/xlink" '
+               f'width="{CW}" height="{CH}" viewBox="0 0 {CW} {CH}">')
     svg.append('<defs>')
     svg.append('<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">'
                '<stop offset="0" stop-color="#0c1320"/>'
@@ -402,16 +423,24 @@ def compose(filename, headline, subtitle, screen_svg, glow=TEAL):
     svg.append(f'<rect x="{FX}" y="{FY}" width="{FW}" height="{FH}" rx="116" ry="116" fill="url(#frame)"/>')
     svg.append(rrect(FX+8, FY+8, FW-16, FH-16, 108, "#000000", 1.0))
 
-    # screen content (nested svg scaled from 393x852), clipped to rounded rect
+    # screen content, clipped to rounded rect
     svg.append(f'<g clip-path="url(#screenclip)">')
-    svg.append(f'<svg x="{SX}" y="{SY}" width="{SW}" height="{SH}" viewBox="0 0 393 852" preserveAspectRatio="xMidYMid slice">')
-    svg.append(screen_svg)
-    svg.append('</svg>')
+    if use_image:
+        # real screenshot fills the screen area (slice = fill, cropping overflow)
+        svg.append(f'<image x="{SX}" y="{SY}" width="{SW}" height="{SH}" '
+                   f'preserveAspectRatio="xMidYMid slice" '
+                   f'xlink:href="{_png_data_uri(screen_image)}"/>')
+    else:
+        # synthetic UI: nested svg scaled from 393x852
+        svg.append(f'<svg x="{SX}" y="{SY}" width="{SW}" height="{SH}" viewBox="0 0 393 852" preserveAspectRatio="xMidYMid slice">')
+        svg.append(screen_svg)
+        svg.append('</svg>')
     svg.append('</g>')
 
     # dynamic island
-    isl_w, isl_h = 250, 74
-    svg.append(rrect(CW/2 - isl_w/2, SY + 30, isl_w, isl_h, isl_h/2, "#000000", 1.0))
+    if draw_island:
+        isl_w, isl_h = 250, 74
+        svg.append(rrect(CW/2 - isl_w/2, SY + 30, isl_w, isl_h, isl_h/2, "#000000", 1.0))
 
     svg.append('</svg>')
     data = "".join(svg)
@@ -421,17 +450,33 @@ def compose(filename, headline, subtitle, screen_svg, glow=TEAL):
                      output_width=CW, output_height=CH)
     print("wrote", png)
 
-# ---------- build all slides ----------
+# ---------- slides ----------
+# screen factory is a function so the synthetic UI is only built when needed.
+# To use a REAL screenshot for any slide, drop a PNG with the same filename into
+# screenshots/raw/ (e.g. screenshots/raw/01-remote.png) and rerun — it will be
+# framed with the same headline/gradient instead of the drawn UI.
 
-compose("01-remote.png",   ["Your remote,", "*reimagined.*"],
-        "Power, volume, channels — all in one tap.", screen_main(), TEAL)
-compose("02-dpad.png",     ["Navigate without", "*looking down.*"],
-        "A full D-pad for every app and menu.", screen_dpad(), "#6EA8FF")
-compose("03-discovery.png",["Finds your TV", "*automatically.*"],
-        "No IP addresses. No fuss. Just tap.", screen_discovery(), TEAL)
-compose("04-inputs.png",   ["Switch inputs", "*in one tap.*"],
-        "HDMI, Live TV, and everything else.", screen_inputs(), "#6EA8FF")
-compose("05-setup.png",    ["Set up in", "*seconds.*"],
-        "No account. No ads. No tracking.", screen_onboarding(), TEAL)
+SLIDES = [
+    ("01-remote.png",    ["Your remote,", "*reimagined.*"],
+     "Power, volume, channels — all in one tap.", screen_main,       TEAL),
+    ("02-dpad.png",      ["Navigate without", "*looking down.*"],
+     "A full D-pad for every app and menu.",      screen_dpad,       "#6EA8FF"),
+    ("03-discovery.png", ["Finds your TV", "*automatically.*"],
+     "No IP addresses. No fuss. Just tap.",        screen_discovery, TEAL),
+    ("04-inputs.png",    ["Switch inputs", "*in one tap.*"],
+     "HDMI, Live TV, and everything else.",        screen_inputs,    "#6EA8FF"),
+    ("05-setup.png",     ["Set up in", "*seconds.*"],
+     "No account. No ads. No tracking.",           screen_onboarding, TEAL),
+]
+
+RAW = os.path.join(OUT, "raw")
+
+for fname, headline, subtitle, screen_fn, glow in SLIDES:
+    raw_path = os.path.join(RAW, fname)
+    if os.path.exists(raw_path):
+        compose(fname, headline, subtitle, glow=glow, screen_image=raw_path)
+        print("   ^ framed real screenshot from raw/" + fname)
+    else:
+        compose(fname, headline, subtitle, screen_svg=screen_fn(), glow=glow)
 
 print("done")
