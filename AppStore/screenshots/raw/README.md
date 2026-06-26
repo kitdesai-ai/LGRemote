@@ -13,10 +13,9 @@ drawn UI.
    ```
 2. Save it here using the **same filename** as the slide you want to replace:
    - `01-remote.png` → "Your remote, reimagined."
-   - `02-dpad.png` → "Navigate without looking down."
-   - `03-discovery.png` → "Finds your TV automatically."
-   - `04-inputs.png` → "Switch inputs in one tap."
-   - `05-setup.png` → "Set up in seconds."
+   - `02-input.png` → "Switch inputs in one tap."
+   - `03-dpad.png` → "Navigate without looking down."
+   - `04-discovery.png` → "Finds your TV automatically."
 3. Re-run the renderer:
    ```bash
    python3 AppStore/generate_screenshots.py

@@ -458,16 +458,16 @@ def compose(filename, headline, subtitle, screen_svg=None, glow=TEAL,
 
 SLIDES = [
     ("01-remote.png",    ["Your remote,", "*reimagined.*"],
-     "Power, volume, channels — all in one tap.", screen_main,       TEAL),
-    ("02-dpad.png",      ["Navigate without", "*looking down.*"],
-     "A full D-pad for every app and menu.",      screen_dpad,       "#6EA8FF"),
-    ("03-discovery.png", ["Finds your TV", "*automatically.*"],
-     "No IP addresses. No fuss. Just tap.",        screen_discovery, TEAL),
-    ("04-inputs.png",    ["Switch inputs", "*in one tap.*"],
-     "HDMI, Live TV, and everything else.",        screen_inputs,    "#6EA8FF"),
-    ("05-setup.png",     ["Set up in", "*seconds.*"],
-     "No account. No ads. No tracking.",           screen_onboarding, TEAL),
+     "Power, volume, channels — all in one tap.", screen_main,      TEAL),
+    ("02-input.png",     ["Switch inputs", "*in one tap.*"],
+     "HDMI, Live TV, and everything else.",        screen_inputs,   "#6EA8FF"),
+    ("03-dpad.png",      ["Navigate without", "*looking down.*"],
+     "A full D-pad for every app and menu.",       screen_dpad,     TEAL),
+    ("04-discovery.png", ["Finds your TV", "*automatically.*"],
+     "No IP addresses. No fuss. Just tap.",         screen_discovery, "#6EA8FF"),
 ]
+# Note: screen_onboarding() (the "No TV Connected" screen) is still defined above
+# and can be re-added here if wanted, but is intentionally not shipped as a slide.
 
 RAW = os.path.join(OUT, "raw")
 

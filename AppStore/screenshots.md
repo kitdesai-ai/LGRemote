@@ -2,16 +2,15 @@
 
 ## ✅ Ready-made marketing screenshots are in `screenshots/`
 
-Five branded marketing slides (1320 × 2868, the required 6.9" size) have already
+Four branded marketing slides (1320 × 2868, the required 6.9" size) have already
 been generated and are ready to upload to App Store Connect as-is:
 
 | File | Headline | Screen shown |
 |------|----------|--------------|
 | `screenshots/01-remote.png` | Your remote, reimagined. | Main remote |
-| `screenshots/02-dpad.png` | Navigate without looking down. | D-pad |
-| `screenshots/03-discovery.png` | Finds your TV automatically. | Settings / discovery |
-| `screenshots/04-inputs.png` | Switch inputs in one tap. | Input picker |
-| `screenshots/05-setup.png` | Set up in seconds. | Onboarding |
+| `screenshots/02-input.png` | Switch inputs in one tap. | Input picker |
+| `screenshots/03-dpad.png` | Navigate without looking down. | D-pad |
+| `screenshots/04-discovery.png` | Finds your TV automatically. | Settings / discovery |
 
 These are vector-rendered mockups that recreate the app's real UI (a branded
 gradient background, headline, and the screen inside an iPhone frame). Regenerate
