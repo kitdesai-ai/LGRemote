@@ -14,8 +14,41 @@ been generated and are ready to upload to App Store Connect as-is:
 
 These are vector-rendered mockups that recreate the app's real UI (a branded
 gradient background, headline, and the screen inside an iPhone frame). Regenerate
-or tweak them anytime with `python3 AppStore/generate_screenshots.py`
-(requires `pip install cairosvg`).
+or tweak them anytime with `python3 AppStore/generate_screenshots.py` (see
+**Generator setup** below for the one-time dependency install).
+
+### Generator setup (one time)
+
+The script needs three things. `pip` only covers the first.
+
+1. **Python package** — installs `cairosvg` and its deps:
+   ```bash
+   cd AppStore
+   python3 -m venv venv && source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+2. **Native Cairo library** — `pip` does NOT install this; `cairosvg` fails to
+   import without it (`OSError: no library called "cairo-2" was found`):
+   ```bash
+   brew install cairo        # macOS  (Linux: apt-get install libcairo2)
+   ```
+   On Apple Silicon, Homebrew installs to `/opt/homebrew/lib`, which isn't on the
+   default library search path — so point the loader at it (add to `~/.zshrc` to
+   make it permanent):
+   ```bash
+   export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix)/lib:$DYLD_FALLBACK_LIBRARY_PATH"
+   ```
+3. **DejaVu fonts** — for correct headline/UI text (Cairo silently falls back to
+   another font otherwise):
+   ```bash
+   brew install --cask font-dejavu
+   ```
+
+Verify:
+```bash
+python3 -c "import cairosvg; print('cairosvg OK')"   # tests 1 + 2
+fc-list | grep -i dejavu                              # tests 3
+```
 
 > Mockup vs. real capture: App Store guidelines allow marketing screenshots that
 > frame/caption the UI like these. If you prefer pixel-exact captures from the

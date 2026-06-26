@@ -5,3 +5,8 @@ xcuserdata/
 *.ipa
 *.dSYM.zip
 *.dSYM
+
+# Python (screenshot generator)
+venv/
+__pycache__/
+*.pyc
