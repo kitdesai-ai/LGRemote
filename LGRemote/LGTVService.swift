@@ -468,17 +468,28 @@ class LGTVService: ObservableObject {
 
         case "mac_info":
             print("MAC info payload: \(payload)")
-            // Prefer wired MAC (Ethernet), fall back to WiFi
-            if let wired = payload["wiredInfo"] as? [String: Any],
-               let mac = wired["macAddress"] as? String, !mac.isEmpty {
-                tvMAC = mac
-            } else if let wifi = payload["wifiInfo"] as? [String: Any],
-                      let mac = wifi["macAddress"] as? String, !mac.isEmpty {
-                tvMAC = mac
-            }
-            // Also try flat keys
-            if tvMAC.isEmpty, let mac = payload["macAddress"] as? String, !mac.isEmpty {
-                tvMAC = mac
+            // Only auto-fill when we don't already have a MAC — never clobber one
+            // the user entered by hand (or one we picked earlier).
+            if tvMAC.isEmpty {
+                let wired = payload["wiredInfo"] as? [String: Any]
+                let wifi  = payload["wifiInfo"] as? [String: Any]
+
+                func mac(_ info: [String: Any]?) -> String? {
+                    (info?["macAddress"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                }
+                func ip(_ info: [String: Any]?) -> String? { info?["ipAddress"] as? String }
+
+                // The interface whose IP matches the one we connected to is the
+                // active NIC — that's the MAC Wake-on-LAN must target (the wired
+                // NIC is powered down in standby if the TV is on Wi-Fi). Fall
+                // back to wired, then wifi, then a flat macAddress key.
+                if ip(wifi) == tvIP, let m = mac(wifi) {
+                    tvMAC = m
+                } else if ip(wired) == tvIP, let m = mac(wired) {
+                    tvMAC = m
+                } else if let m = mac(wired) ?? mac(wifi) ?? (payload["macAddress"] as? String) {
+                    tvMAC = m
+                }
             }
 
         default:
@@ -598,7 +609,7 @@ class LGTVService: ObservableObject {
     
     func powerOn() {
         guard !tvMAC.isEmpty else { return }
-        WakeOnLAN.send(macAddress: tvMAC)
+        WakeOnLAN.send(macAddress: tvMAC, tvIP: tvIP)
         
         // After WoL, try connecting after a few seconds
         Task {
@@ -611,49 +622,115 @@ class LGTVService: ObservableObject {
 // MARK: - Wake on LAN
 
 enum WakeOnLAN {
-    static func send(macAddress: String, port: UInt16 = 9) {
+    /// Send a Wake-on-LAN magic packet to wake the TV from standby.
+    /// - Parameters:
+    ///   - macAddress: MAC of the interface the TV uses on the network.
+    ///   - tvIP: last-known IP of the TV. Used for a unicast fallback — LG TVs
+    ///     keep their NIC alive in standby, so a directed unicast packet often
+    ///     wakes the TV even when broadcast traffic is dropped.
+    static func send(macAddress: String, tvIP: String = "") {
         let mac = parseMACAddress(macAddress)
         guard mac.count == 6 else { return }
-        
-        // Build magic packet: 6 x 0xFF + 16 x MAC
-        var magicPacket = [UInt8](repeating: 0xFF, count: 6)
-        for _ in 0..<16 {
-            magicPacket.append(contentsOf: mac)
-        }
-        
-        let data = Data(magicPacket)
-        
-        // Send via NWConnection UDP broadcast
-        let host = NWEndpoint.Host("255.255.255.255")
-        let nwPort = NWEndpoint.Port(rawValue: port)!
-        let params = NWParameters.udp
-        params.allowLocalEndpointReuse = true
-        // Enable broadcast
-        params.requiredInterfaceType = .wifi
-        
-        let connection = NWConnection(host: host, port: nwPort, using: params)
-        connection.stateUpdateHandler = { state in
-            if state == .ready {
-                connection.send(content: data, completion: .contentProcessed { _ in
-                    connection.cancel()
-                })
+
+        // Magic packet: 6 x 0xFF followed by 16 repetitions of the MAC.
+        var packet = [UInt8](repeating: 0xFF, count: 6)
+        for _ in 0..<16 { packet.append(contentsOf: mac) }
+        let data = Data(packet)
+
+        // Destinations, most-reliable first. iOS frequently drops the limited
+        // 255.255.255.255 broadcast, so also target the subnet-directed
+        // broadcast (e.g. 192.168.1.255) and the TV's unicast IP.
+        var hosts: [String] = []
+        if let subnet = subnetBroadcastAddress() { hosts.append(subnet) }
+        if !tvIP.isEmpty { hosts.append(tvIP) }
+        hosts.append("255.255.255.255")
+
+        var seen = Set<String>()
+        let targets = hosts.filter { seen.insert($0).inserted }
+
+        DispatchQueue.global(qos: .utility).async {
+            for host in targets {
+                // WoL is conventionally sent to UDP port 9 (and sometimes 7).
+                for port in [UInt16(9), UInt16(7)] {
+                    sendPacket(data, host: host, port: port)
+                }
             }
         }
-        connection.start(queue: .global())
     }
-    
+
+    private static func sendPacket(_ data: Data, host: String, port: UInt16) {
+        let fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+        guard fd >= 0 else { return }
+        defer { close(fd) }
+
+        // Allow sending to broadcast addresses.
+        var enable: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &enable, socklen_t(MemoryLayout<Int32>.size))
+
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = port.bigEndian
+        guard inet_pton(AF_INET, host, &addr.sin_addr) == 1 else { return }
+        let addrLen = socklen_t(MemoryLayout<sockaddr_in>.size)
+
+        // UDP packets can be dropped — send a short burst.
+        for _ in 0..<3 {
+            _ = data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> Int in
+                withUnsafePointer(to: addr) { ap in
+                    ap.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
+                        sendto(fd, raw.baseAddress, raw.count, 0, sa, addrLen)
+                    }
+                }
+            }
+            usleep(120_000)
+        }
+    }
+
+    /// Subnet-directed broadcast for the Wi-Fi interface (e.g. 192.168.1.255),
+    /// derived from the device's own IPv4 address and netmask.
+    private static func subnetBroadcastAddress() -> String? {
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0 else { return nil }
+        defer { freeifaddrs(ifaddr) }
+
+        var ptr = ifaddr
+        while let cur = ptr {
+            let ifa = cur.pointee
+            let name = String(cString: ifa.ifa_name)
+            if name == "en0",                                   // Wi-Fi on iOS
+               ifa.ifa_addr?.pointee.sa_family == UInt8(AF_INET),
+               let addrPtr = ifa.ifa_addr,
+               let maskPtr = ifa.ifa_netmask {
+                let addr = addrPtr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee.sin_addr.s_addr }
+                let mask = maskPtr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee.sin_addr.s_addr }
+                let bcast = addr | ~mask
+                // s_addr is network byte order; on little-endian iOS the
+                // least-significant byte is the first octet.
+                let o1 = bcast & 0xff
+                let o2 = (bcast >> 8) & 0xff
+                let o3 = (bcast >> 16) & 0xff
+                let o4 = (bcast >> 24) & 0xff
+                return "\(o1).\(o2).\(o3).\(o4)"
+            }
+            ptr = ifa.ifa_next
+        }
+        return nil
+    }
+
     private static func parseMACAddress(_ mac: String) -> [UInt8] {
-        let cleaned = mac.replacingOccurrences(of: ":", with: "")
-                        .replacingOccurrences(of: "-", with: "")
+        let cleaned = mac
+            .replacingOccurrences(of: ":", with: "")
+            .replacingOccurrences(of: "-", with: "")
+            .replacingOccurrences(of: ".", with: "")
+            .replacingOccurrences(of: " ", with: "")
         guard cleaned.count == 12 else { return [] }
-        
+
         var bytes: [UInt8] = []
         var index = cleaned.startIndex
         for _ in 0..<6 {
             let nextIndex = cleaned.index(index, offsetBy: 2)
-            if let byte = UInt8(cleaned[index..<nextIndex], radix: 16) {
-                bytes.append(byte)
-            }
+            guard let byte = UInt8(cleaned[index..<nextIndex], radix: 16) else { return [] }
+            bytes.append(byte)
             index = nextIndex
         }
         return bytes

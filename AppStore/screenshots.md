@@ -1,5 +1,72 @@
 # App Store Screenshots — Requirements & Plan
 
+## ✅ Ready-made marketing screenshots are in `screenshots/`
+
+Four branded marketing slides (1320 × 2868, the required 6.9" size) have already
+been generated and are ready to upload to App Store Connect as-is:
+
+| File | Headline | Screen shown |
+|------|----------|--------------|
+| `screenshots/01-remote.png` | Your remote, reimagined. | Main remote |
+| `screenshots/02-input.png` | Switch inputs in one tap. | Input picker |
+| `screenshots/03-dpad.png` | Navigate without looking down. | D-pad |
+| `screenshots/04-discovery.png` | Finds your TV automatically. | Settings / discovery |
+
+These are vector-rendered mockups that recreate the app's real UI (a branded
+gradient background, headline, and the screen inside an iPhone frame). Regenerate
+or tweak them anytime with `python3 AppStore/generate_screenshots.py` (see
+**Generator setup** below for the one-time dependency install).
+
+### Generator setup (one time)
+
+The script needs three things. `pip` only covers the first.
+
+1. **Python package** — installs `cairosvg` and its deps:
+   ```bash
+   cd AppStore
+   python3 -m venv venv && source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+2. **Native Cairo library** — `pip` does NOT install this; `cairosvg` fails to
+   import without it (`OSError: no library called "cairo-2" was found`):
+   ```bash
+   brew install cairo        # macOS  (Linux: apt-get install libcairo2)
+   ```
+   On Apple Silicon, Homebrew installs to `/opt/homebrew/lib`, which isn't on the
+   default library search path — so point the loader at it (add to `~/.zshrc` to
+   make it permanent):
+   ```bash
+   export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix)/lib:$DYLD_FALLBACK_LIBRARY_PATH"
+   ```
+3. **DejaVu fonts** — for correct headline/UI text (Cairo silently falls back to
+   another font otherwise):
+   ```bash
+   brew install --cask font-dejavu
+   ```
+
+Verify:
+```bash
+python3 -c "import cairosvg; print('cairosvg OK')"   # tests 1 + 2
+fc-list | grep -i dejavu                              # tests 3
+```
+
+> Mockup vs. real capture: App Store guidelines allow marketing screenshots that
+> frame/caption the UI like these. If you prefer pixel-exact captures from the
+> live app, follow the simulator steps below and drop them in — either works.
+
+### Want the flair on REAL screenshots?
+
+The renderer can frame your actual app captures with the same headline/gradient.
+Drop a 6.9" capture (1320 × 2868) into `screenshots/raw/` using the matching
+slide filename (e.g. `screenshots/raw/01-remote.png`) and rerun
+`python3 AppStore/generate_screenshots.py`. Slides with a real capture use it;
+the rest stay synthetic — mix and match freely. Details in
+[`screenshots/raw/README.md`](screenshots/raw/README.md).
+
+---
+
+## Requirements reference
+
 You chose **iPhone-only**, so you only need one iPhone screenshot set. Apple
 auto-scales it down for smaller iPhones, so you do **not** need every size.
 
