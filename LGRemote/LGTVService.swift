@@ -80,14 +80,18 @@ enum TVConnectionState: Equatable {
     case connecting
     case awaitingPairing   // TV is showing the Accept/Deny prompt
     case connected
+    case poweringOn        // Wake-on-LAN sent, waiting for the TV to boot
+    case offline           // Can't reach the TV — it's off, asleep, or off-network
     case error(String)
-    
+
     static func == (lhs: TVConnectionState, rhs: TVConnectionState) -> Bool {
         switch (lhs, rhs) {
         case (.disconnected, .disconnected),
              (.connecting, .connecting),
              (.awaitingPairing, .awaitingPairing),
-             (.connected, .connected): return true
+             (.connected, .connected),
+             (.poweringOn, .poweringOn),
+             (.offline, .offline): return true
         case (.error(let a), .error(let b)): return a == b
         default: return false
         }
@@ -340,7 +344,10 @@ class LGTVService: ObservableObject {
                         self?.sessionDelegate.onConnectionFailed = nil
                         fallback()
                     } else {
-                        self?.connectionState = .error("Send failed: \(error.localizedDescription)")
+                        // No fallback left → we couldn't reach the TV on any port,
+                        // which almost always means it's off or asleep. Show a
+                        // calm "offline" state rather than a scary error.
+                        self?.connectionState = .offline
                     }
                 }
             }
@@ -371,7 +378,9 @@ class LGTVService: ObservableObject {
                         self?.sessionDelegate.onConnectionFailed = nil
                         fallback()
                     } else if self?.connectionState != .disconnected {
-                        self?.connectionState = .error("Connection lost: \(error.localizedDescription)")
+                        // Socket dropped with no fallback pending — treat as the
+                        // TV going off/unreachable, not a hard error.
+                        self?.connectionState = .offline
                     }
                 }
             }
@@ -596,14 +605,41 @@ class LGTVService: ObservableObject {
     
     // MARK: - Wake on LAN (Power On)
     
+    private var wakeRetries = 0
+
     func powerOn() {
-        guard !tvMAC.isEmpty else { return }
+        guard !tvMAC.isEmpty else {
+            // Wake-on-LAN needs the TV's MAC address — guide the user to add it.
+            connectionState = .error("Add your TV's MAC address in Settings to power it on")
+            return
+        }
+        wakeRetries = 0
+        connectionState = .poweringOn
+        wakeAndConnect()
+    }
+
+    /// Send the wake packet, give the TV time to boot, then try to connect.
+    /// Retries a few times (re-sending WoL each round) because a webOS TV can
+    /// take 10–20s to come up — so we keep showing "Turning on your TV…" instead
+    /// of flashing "TV is off" while it's still booting.
+    private func wakeAndConnect() {
         WakeOnLAN.send(macAddress: tvMAC, tvIP: tvIP)
-        
-        // After WoL, try connecting after a few seconds
-        Task {
+        Task { @MainActor [weak self] in
+            // Give the TV time to boot its network stack before connecting.
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            guard let self, self.connectionState == .poweringOn else { return }  // cancelled elsewhere
+            self.connect()
+
+            // Wait for this attempt to resolve, then retry only if it failed.
             try? await Task.sleep(nanoseconds: 4_000_000_000)
-            connect()
+            if self.connectionState == .offline {
+                self.wakeRetries += 1
+                if self.wakeRetries < 5 {
+                    self.connectionState = .poweringOn
+                    self.wakeAndConnect()
+                }
+                // Otherwise give up and leave the .offline state in place.
+            }
         }
     }
 }

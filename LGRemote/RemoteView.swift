@@ -178,16 +178,18 @@ struct RemoteView: View {
         case .connecting: return "Connecting…"
         case .awaitingPairing: return "Accept on TV"
         case .connected: return "Connected"
+        case .poweringOn: return "Turning on your TV…"
+        case .offline: return "TV is off or asleep"
         case .error(let msg): return msg
         }
     }
-    
+
     private var connectionColor: Color {
         switch tv.connectionState {
         case .connected: return .green
-        case .connecting, .awaitingPairing: return .orange
+        case .connecting, .awaitingPairing, .poweringOn: return .orange
         case .error: return .red
-        case .disconnected: return .gray
+        case .offline, .disconnected: return .gray
         }
     }
     
@@ -395,7 +397,7 @@ struct RemoteView: View {
     
     private var showReconnect: Bool {
         switch tv.connectionState {
-        case .disconnected, .error: return true
+        case .disconnected, .error, .offline: return true
         default: return false
         }
     }
